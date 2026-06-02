@@ -1613,7 +1613,15 @@ function afHasResultBroadcast(msgs, entryIdx) {
 function afHasTransferAgent(msgs, entryIdx, bCol) {
   if (/直接转人工|其他原因转人工|系统异常转人工/.test(bCol)) return "是";
   var transferIdx = afFindTransferIdx(msgs, entryIdx || 0);
-  if (transferIdx !== null) return "是";
+  if (transferIdx !== null) {
+    // 非停电信息场景（结果播报"未查询到停电信息"）下的转人工，Q=否
+    var resultIdx = afFindResultIdx(msgs, entryIdx || 0);
+    if (resultIdx !== null) {
+      var resultContent = msgs[resultIdx].content;
+      if (/未查询到相关停电信息/.test(resultContent)) return "否";
+    }
+    return "是";
+  }
   var afterIdx = transferIdx !== null ? transferIdx + 1 : 0;
   var afterMsgs = afGetAgentMsgsAfter(msgs, afterIdx);
   if (/按0.*转接|按0.*人工/.test(afterMsgs)) return "是";

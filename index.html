@@ -1252,10 +1252,9 @@ function afRuleBasedFill(wb) {
         }
       }
 
-      // F列="结果播报"时，G和J不可能全为空——到达结果播报前肯定经过了关系库选择或身份验证
-      // 所以当F="结果播报"时，始终检查J列（身份验证），不能跳过
+      // I列="结果播报"时跳过身份验证环节(J-O列)，但P-R列继续填充
       var iStop = fStop || (getVal('relationNext') === "转人工" || getVal('relationNext') === "挂机");
-      var skipIdentity = iStop;
+      var skipIdentity = iStop || (getVal('relationNext') === "结果播报");
 
       // J列：是否进行身份验证
       if (!skipIdentity && !getVal('hasVerify')) {
@@ -1693,9 +1692,9 @@ function afComputeSummary(originalRows) {
       }
     }
 
-    // F="结果播报"时，G和J不可能全为空，始终检查J
+    // I="结果播报"时J-O列为空
     var iStop = fStop || (iVal === "转人工" || iVal === "挂机");
-    var skipIdentity = iStop;
+    var skipIdentity = iStop || (iVal === "结果播报");
     var jVal = "";
     var oVal = "";
     if (!skipIdentity) {
@@ -1835,9 +1834,9 @@ function afRenderSummary(originalRows) {
       }
     }
 
-    // F="结果播报"时，G和J不可能全为空，始终检查J
+    // I="结果播报"时J-O列为空
     var iStop = fStop || (iVal === "转人工" || iVal === "挂机");
-    var skipIdentity = iStop;
+    var skipIdentity = iStop || (iVal === "结果播报");
     var jVal = "";
     var oVal = "";
     if (!skipIdentity) {

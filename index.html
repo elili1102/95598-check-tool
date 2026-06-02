@@ -1091,6 +1091,8 @@ function afIsInfoCollectMsg(role, content) {
   if (content.indexOf('未查询到相关停电信息') >= 0) return false;
   if (content.indexOf('转接人工') >= 0 || content.indexOf('转人工') >= 0) return false;
   if (content.indexOf('正确请按1井号') >= 0 || content.indexOf('正确请按1') >= 0) return false;
+  // "您是要反映尾号...说是或不是"是确认户号，属于关系库选择，不是身份验证
+  if (/您是要反映/.test(content) && /是或不是|说是|说不是/.test(content)) return false;
   if ((content.indexOf('请您提供') >= 0 || content.indexOf('请您说出') >= 0 || content.indexOf('请输入') >= 0)
       && (content.indexOf('地址') >= 0 || content.indexOf('详细') >= 0)) {
     return true;
@@ -1368,12 +1370,16 @@ function afIdentifyIntentNext(msgs, entryIdx) {
 
 // ========== G列：是否有关系库 ==========
 function afHasRelationDB(allAgentJoined) {
+  // 1. 推送多个户号："查到N个户号"
   if (/查到\d+个户号/.test(allAgentJoined)) return "是";
+  // 2. 来电号码直接查到户号："您是要反映尾号XXX"
+  if (/您是要反映尾号|请问您是要反映尾号/.test(allAgentJoined)) return "是";
   return "";
 }
 
 // ========== H列：客户是否选择推送户号 ==========
 function afSelectedAccount(msgs, entryIdx, acctCount) {
+  // 情况1：推送多个户号，"查到N个户号"
   var pushIdx = -1;
   for (var i = entryIdx || 0; i < msgs.length; i++) {
     if (msgs[i].role === 'a' && /查到/.test(msgs[i].content) && /个户号/.test(msgs[i].content)) {
@@ -1381,7 +1387,29 @@ function afSelectedAccount(msgs, entryIdx, acctCount) {
       break;
     }
   }
-  if (pushIdx === -1) return "";
+  // 情况2：来电号码直接查到户号，"您是要反映尾号XXX"
+  if (pushIdx === -1) {
+    var confirmIdx = -1;
+    for (var j = entryIdx || 0; j < msgs.length; j++) {
+      if (msgs[j].role === 'a' && /您是要反映尾号/.test(msgs[j].content) && /是或不是|说是|说不是/.test(msgs[j].content)) {
+        confirmIdx = j;
+        break;
+      }
+    }
+    if (confirmIdx >= 0) {
+      // 客户说了"是"确认了这个户号
+      for (var k = confirmIdx + 1; k < msgs.length; k++) {
+        if (msgs[k].role === 'c') {
+          var resp = msgs[k].content.trim();
+          if (/是/.test(resp)) return "是";
+          if (/不是|否/.test(resp)) return "否";
+          break;
+        }
+      }
+      return "否";
+    }
+    return "";
+  }
   var effPress = null;
   var i2 = pushIdx + 1;
   while (i2 < msgs.length) {
@@ -1448,6 +1476,25 @@ function afRelationDBNext(msgs, entryIdx, hCol, acctCount) {
     }
   }
   if (pushIdx === -1) {
+    // 来电号码直接查到户号的情况：找"您是要反映尾号...说是或不是"的位置
+    var confirmIdx2 = -1;
+    for (var ci = entryIdx || 0; ci < msgs.length; ci++) {
+      if (msgs[ci].role === 'a' && /您是要反映尾号/.test(msgs[ci].content) && /是或不是|说是|说不是/.test(msgs[ci].content)) {
+        confirmIdx2 = ci;
+        break;
+      }
+    }
+    if (confirmIdx2 >= 0) {
+      // 从确认户号之后判断后续环节
+      var infoIdxAfter2 = afFindInfoIdx(msgs, confirmIdx2 + 1);
+      if (infoIdxAfter2 !== null) return "身份验证";
+      var resultIdx2 = afFindResultIdx(msgs, confirmIdx2 + 1);
+      if (resultIdx2 !== null) return "结果播报";
+      var transferIdx2 = afFindTransferIdx(msgs, confirmIdx2 + 1);
+      if (transferIdx2 !== null) return "转人工";
+      return "挂机";
+    }
+    // 没有推送也没有来电确认户号，按通用逻辑判断
     var infoIdx = afFindInfoIdx(msgs, entryIdx || 0);
     var resultIdx = afFindResultIdx(msgs, entryIdx || 0);
     var transferIdx = afFindTransferIdx(msgs, entryIdx || 0);

@@ -1250,9 +1250,10 @@ function afRuleBasedFill(wb) {
         }
       }
 
-      // I列="结果播报"时跳过身份验证环节(J-O列)，但P-R列继续填充
+      // F列="结果播报"时，G和J不可能全为空——到达结果播报前肯定经过了关系库选择或身份验证
+      // 所以当F="结果播报"时，始终检查J列（身份验证），不能跳过
       var iStop = fStop || (getVal('relationNext') === "转人工" || getVal('relationNext') === "挂机");
-      var skipIdentity = iStop || (getVal('relationNext') === "结果播报");
+      var skipIdentity = iStop;
 
       // J列：是否进行身份验证
       if (!skipIdentity && !getVal('hasVerify')) {
@@ -1455,7 +1456,12 @@ function afRelationDBNext(msgs, entryIdx, hCol, acctCount) {
     if (resultIdx !== null) return "结果播报";
     return "挂机";
   }
-  if (hCol === "是") return "结果播报";
+  if (hCol === "是") {
+    // 选了户号后，还需判断是否走了身份验证环节
+    var infoIdxAfter = afFindInfoIdx(msgs, pushIdx + 1);
+    if (infoIdxAfter !== null) return "身份验证";
+    return "结果播报";
+  }
   var afterPushAgent = afGetAgentMsgsAfter(msgs, pushIdx + 1);
   if (/按0/.test(afterPushAgent)) return "转人工";
   if (/按9/.test(afterPushAgent)) return "身份验证";
@@ -1627,9 +1633,9 @@ function afComputeSummary(originalRows) {
       }
     }
 
-    // I列="结果播报"时跳过身份验证环节(J-O列)，但P-R列继续填充
+    // F="结果播报"时，G和J不可能全为空，始终检查J
     var iStop = fStop || (iVal === "转人工" || iVal === "挂机");
-    var skipIdentity = iStop || (iVal === "结果播报");
+    var skipIdentity = iStop;
     var jVal = "";
     var oVal = "";
     if (!skipIdentity) {
@@ -1769,9 +1775,9 @@ function afRenderSummary(originalRows) {
       }
     }
 
-    // I列="结果播报"时跳过身份验证环节(J-O列)，但P-R列继续填充
+    // F="结果播报"时，G和J不可能全为空，始终检查J
     var iStop = fStop || (iVal === "转人工" || iVal === "挂机");
-    var skipIdentity = iStop || (iVal === "结果播报");
+    var skipIdentity = iStop;
     var jVal = "";
     var oVal = "";
     if (!skipIdentity) {

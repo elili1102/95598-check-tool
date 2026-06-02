@@ -1614,11 +1614,16 @@ function afHasTransferAgent(msgs, entryIdx, bCol) {
   if (/直接转人工|其他原因转人工|系统异常转人工/.test(bCol)) return "是";
   var transferIdx = afFindTransferIdx(msgs, entryIdx || 0);
   if (transferIdx !== null) {
-    // 非停电信息场景（结果播报"未查询到停电信息"）下的转人工，Q=否
+    // 检查结果播报和转人工之间，客户是否发起了新场景（如故障报修、查欠费等）
     var resultIdx = afFindResultIdx(msgs, entryIdx || 0);
-    if (resultIdx !== null) {
-      var resultContent = msgs[resultIdx].content;
-      if (/未查询到相关停电信息/.test(resultContent)) return "否";
+    if (resultIdx !== null && resultIdx < transferIdx) {
+      for (var mi = resultIdx + 1; mi < transferIdx; mi++) {
+        if (msgs[mi].role === 'c') {
+          var mc = msgs[mi].content.trim();
+          // 客户在结果播报后、转人工前发起了新的业务意图
+          if (/故障报修|查欠费|缴费|报修|查其他|查停电/.test(mc) && !/转人工/.test(mc)) return "否";
+        }
+      }
     }
     return "是";
   }
